@@ -23,12 +23,6 @@ try:
     BEARER_TOKEN = st.secrets["MX_BEARER_TOKEN"]
     API_KEY = st.secrets["MX_API_KEY"]
 except KeyError:
-    # Fallback to hardcoded credentials ONLY if secrets are not found
-    # !! WARNING: Avoid hardcoding sensitive keys in production/shared apps !!
-    st.warning("WARNING: MaintainX API credentials not found in Streamlit Secrets. Using potentially insecure hardcoded values.")
-    BEARER_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjczNTYxMywib3JnYW5pemF0aW9uSWQiOjMwNzMwOCwiaWF0IjoxNzI0OTYzNjAzLCJzdWIiOiJSRVNUX0FQSV9BVVRIIiwianRpIjoiYjk4ZGQ1YjAtYTJlOC00MzQ4LWIyYjktNTMxYTgwOWMzOWU4In0.Tasnuv8HjZQE02_1d2kd_fmBGezlZUWp5AWv_yHolh8" # Replace with your actual token if needed for testing without secrets
-    API_KEY = "vKxwOIK+JDnUA6LQhb1ynbR1Skmn2I4S/pnIhWmdk2hfnWXblefAsBy3va/Xx9F6f9iaLsWgHst7FA3++e7dXw=="     # Replace with your actual API key if needed for testing without secrets
-    if not BEARER_TOKEN or not API_KEY:
          st.error("ERROR: MaintainX API credentials are missing.")
          st.stop()
 
