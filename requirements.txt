@@ -4,3 +4,4 @@ python-barcode[images]
 reportlab
 Pillow
 qrcode
+pymupdf
