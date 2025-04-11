@@ -164,7 +164,7 @@ def generate_pdf_label_data(input_url):
 
             # Sanitize name for filename
             safe_name = "".join(c for c in name if c.isalnum() or c in (' ', '_', '-')).rstrip().replace(' ', '_')
-            pdf_filename = f'MX_Label_{part_id}_{safe_name}.pdf'
+            pdf_filename = f'barcode_{part_id}_{safe_name}.pdf'
 
             return pdf_bytes, pdf_filename
 
@@ -220,8 +220,3 @@ if submitted:
             pass # Error handled, do nothing more here
         else:
              st.error("An unknown error occurred during PDF generation.")
-
-st.markdown("---")
-st.caption("Note: Ensure the API Token and Key used have the necessary permissions to read part data.")
-# Updated caption about secrets handling
-st.caption("Security: Uses Streamlit Secrets for API credentials. If `secrets.toml` is not found, it may fall back to hardcoded values (not recommended).")
