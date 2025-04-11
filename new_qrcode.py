@@ -174,8 +174,10 @@ def generate_pdf_and_preview_data(input_url):
 
 
 # --- Streamlit App Layout ---
-st.set_page_config(page_title="MaintainX QR Label Generator", layout="centered")
-st.title("📄 MaintainX Part QR Code Label Generator")
+st.set_page_config(page_title="MaintainX Label Generator", layout="centered")
+
+st.title("📄 MaintainX Part Label Generator")
+
 st.markdown("Enter the URL of a Part from MaintainX to generate a 3\"x1\" PDF label with its name and a QR code.")
 
 with st.form("label_form"):
