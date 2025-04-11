@@ -1,0 +1,5 @@
+streamlit
+requests
+python-barcode[images]
+reportlab
+Pillow
