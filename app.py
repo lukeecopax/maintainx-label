@@ -5,31 +5,33 @@ import base64
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch
 from reportlab.platypus import Paragraph, Frame
-from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.styles import ParagraphStyle # Removed getSampleStyleSheet as it wasn't used
 from reportlab.lib.pagesizes import inch
 from reportlab.lib.enums import TA_CENTER
 from barcode import Code128
 from barcode.writer import ImageWriter
 import os
 import io # Required for in-memory file handling
+import traceback # For detailed error logging
 
 # --- Configuration & Constants ---
 BASE_URL = "https://api.getmaintainx.com/v1"
-# IMPORTANT: Replace these with st.secrets for production/sharing
-# For local testing, you can leave them here or use environment variables
-# BEARER_TOKEN = "YOUR_BEARER_TOKEN" # Replace with your actual token
-# API_KEY = "YOUR_API_KEY"         # Replace with your actual API key
 
-# Using the token/key from the original script for demonstration
-# !! WARNING: Do not commit sensitive keys directly into code !!
-# !! Use Streamlit Secrets (st.secrets) for deployment !!
-# Near the top of app.py, replace the hardcoded credentials with:
+# --- Load Secrets ---
+# Using Streamlit Secrets for API Credentials
 try:
     BEARER_TOKEN = st.secrets["MX_BEARER_TOKEN"]
     API_KEY = st.secrets["MX_API_KEY"]
 except KeyError:
-    st.error("ERROR: MaintainX API credentials not found in Streamlit Secrets.")
-    st.stop() # Stop execution if secrets are missing
+    # Fallback to hardcoded credentials ONLY if secrets are not found
+    # !! WARNING: Avoid hardcoding sensitive keys in production/shared apps !!
+    st.warning("WARNING: MaintainX API credentials not found in Streamlit Secrets. Using potentially insecure hardcoded values.")
+    BEARER_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjczNTYxMywib3JnYW5pemF0aW9uSWQiOjMwNzMwOCwiaWF0IjoxNzI0OTYzNjAzLCJzdWIiOiJSRVNUX0FQSV9BVVRIIiwianRpIjoiYjk4ZGQ1YjAtYTJlOC00MzQ4LWIyYjktNTMxYTgwOWMzOWU4In0.Tasnuv8HjZQE02_1d2kd_fmBGezlZUWp5AWv_yHolh8" # Replace with your actual token if needed for testing without secrets
+    API_KEY = "vKxwOIK+JDnUA6LQhb1ynbR1Skmn2I4S/pnIhWmdk2hfnWXblefAsBy3va/Xx9F6f9iaLsWgHst7FA3++e7dXw=="     # Replace with your actual API key if needed for testing without secrets
+    if not BEARER_TOKEN or not API_KEY:
+         st.error("ERROR: MaintainX API credentials are missing.")
+         st.stop()
+
 
 HEADERS = {
     "Authorization": f"Bearer {BEARER_TOKEN}",
@@ -40,8 +42,9 @@ HEADERS = {
 # --- Helper Function: Generate PDF ---
 def generate_pdf_label_data(input_url):
     """
-    Fetches part data, generates a barcode image, creates a PDF label in memory,
-    and returns the PDF bytes and suggested filename.
+    Fetches part data, generates a barcode image, creates a PDF label in memory
+    matching the original Colab script's layout, and returns the PDF bytes
+    and suggested filename.
     """
     try:
         # Extract part ID from the URL
@@ -82,21 +85,19 @@ def generate_pdf_label_data(input_url):
 
         if not barcode_value:
             st.warning("Part found, but it does not have a barcode value assigned in MaintainX.")
-            # Decide if you want to proceed without a barcode or stop
-            # For now, let's try generating a barcode from the part_id as a fallback
+            # Fallback behaviour: Use part_id if barcode is missing
             barcode_value = part_id
             st.info(f"Using Part ID '{part_id}' as fallback barcode value.")
-            # return None, None # uncomment this if you want to stop if no barcode exists
 
-        # Decode the barcode from Base64 if necessary (unlikely for standard barcodes)
-        # The original code had this, keeping it just in case, but usually not needed for EAN/UPC/Code128
+        # Decode the barcode from Base64 if necessary (Unlikely, but kept from original)
         try:
-            # Attempt Base64 decoding ONLY if it looks like Base64
-            if len(barcode_value) % 4 == 0 and all(c in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/' for c in barcode_value):
+            # Basic check if it *might* be Base64 before attempting decode
+            if len(barcode_value) % 4 == 0 and len(barcode_value) > 4 and all(c in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=' for c in barcode_value):
                  decoded_barcode = base64.b64decode(barcode_value).decode('utf-8')
             else:
                  decoded_barcode = barcode_value # Use as-is
         except (base64.binascii.Error, UnicodeDecodeError):
+            st.warning(f"Value '{barcode_value}' in barcode field couldn't be Base64 decoded, using raw value.")
             decoded_barcode = barcode_value # Use as-is if decoding fails
 
         if not decoded_barcode:
@@ -108,63 +109,50 @@ def generate_pdf_label_data(input_url):
         barcode_image_path = None
         try:
             # Generate Code-128 barcode image without text below it
-            options = dict(write_text=False, module_height=5.0) # Adjust module_height for barcode thickness
+            # Reverted options to match original Colab script
+            options = dict(write_text=False)
             barcode_obj = Code128(decoded_barcode, writer=ImageWriter())
             # Save barcode image temporarily
             barcode_image_path = barcode_obj.save(barcode_filename_base, options) # Returns the full path with extension (.png)
 
-            # --- PDF Generation ---
+            # --- PDF Generation (Layout matching original Colab script) ---
             pdf_buffer = io.BytesIO()
             c = canvas.Canvas(pdf_buffer, pagesize=(3 * inch, 1 * inch))
 
-            # Barcode placement
+            # Barcode placement - Reverted to original parameters
             barcode_width = 2.5 * inch
-            barcode_height = 0.30 * inch # Increased height slightly
+            barcode_height = 0.22 * inch # Original height
             barcode_x = (3 * inch - barcode_width) / 2 # Centered horizontally
-            barcode_y = 0.60 * inch # Positioned higher
+            barcode_y = 0.75 * inch # Original Y position (higher)
 
-            c.drawImage(barcode_image_path, x=barcode_x, y=barcode_y, width=barcode_width, height=barcode_height, preserveAspectRatio=True, anchor='n')
+            # Draw the barcode image - Reverted to original simple drawImage call
+            c.drawImage(barcode_image_path, x=barcode_x, y=barcode_y, width=barcode_width, height=barcode_height)
 
-            # Text (Part Name) placement
-            # Dynamic font size based on name length
-            max_len_large_font = 25
-            max_len_medium_font = 40
-            if len(name) <= max_len_large_font:
-                font_size = 14
-            elif len(name) <= max_len_medium_font:
-                font_size = 12
-            else:
-                font_size = 10 # Smaller font for very long names
+            # Text (Part Name) placement - Reverted to original parameters
+            # Original dynamic font size logic
+            font_size = 16 if len(name) <= 30 else 14
 
+            # Original style setup
             style = ParagraphStyle(
                 name='CenteredStyle',
                 fontName='Helvetica-Bold',
                 fontSize=font_size,
-                leading=font_size + 2, # Adjust line spacing slightly more than font size
-                alignment=TA_CENTER,
-                wordWrap='CJK', # Handles wrapping better for mixed characters
+                leading=font_size, # Original leading
+                alignment=TA_CENTER
             )
             paragraph = Paragraph(name, style)
 
-            # Frame for text - place below barcode
-            frame_width = 2.8 * inch
-            frame_height = barcode_y - (0.1 * inch) # Max height is space below barcode minus margin
-            frame_x = (3 * inch - frame_width) / 2
-            frame_y = 0.05 * inch # Bottom margin
+            # Original Frame definition
+            frame_width = 2.9 * inch # Original width
+            frame_height = 0.78 * inch # Original height (fixed)
+            frame_x = (3 * inch - frame_width) / 2 # Centered horizontally
+            frame_y = 0.02 * inch # Original Y position (lower)
 
-            frame = Frame(frame_x, frame_y, frame_width, frame_height, leftPadding=0, bottomPadding=0, rightPadding=0, topPadding=0, showBoundary=0) # Set padding to 0
+            frame = Frame(frame_x, frame_y, frame_width, frame_height, showBoundary=0) # Original Frame
 
-            # Draw the paragraph within the frame
-            # This handles text wrapping automatically
-            para_width, para_height = paragraph.wrapOn(c, frame_width, frame_height)
-            if para_height <= frame_height: # Only draw if it fits
-                frame.addFromList([paragraph], c)
-            else:
-                 # Handle text overflow - maybe truncate or just warn
-                 st.warning(f"Part name '{name}' is too long to fit completely on the label at the smallest font size. It may be truncated.")
-                 # Draw truncated text if needed (more complex) or just draw what fits
-                 frame.addFromList([paragraph], c) # Draw whatever fits
-
+            # Original method to add Paragraph to the Frame
+            # ReportLab's Frame handles text wrapping and clipping automatically based on dimensions
+            frame.addFromList([paragraph], c)
 
             # Save PDF to buffer
             c.showPage()
@@ -175,7 +163,7 @@ def generate_pdf_label_data(input_url):
             pdf_buffer.close()
 
             # Sanitize name for filename
-            safe_name = "".join(c for c in name if c.isalnum() or c in (' ', '_', '-')).rstrip()
+            safe_name = "".join(c for c in name if c.isalnum() or c in (' ', '_', '-')).rstrip().replace(' ', '_')
             pdf_filename = f'MX_Label_{part_id}_{safe_name}.pdf'
 
             return pdf_bytes, pdf_filename
@@ -191,7 +179,6 @@ def generate_pdf_label_data(input_url):
 
     except Exception as e:
         st.error(f"An error occurred during label generation: {e}")
-        import traceback
         st.error(traceback.format_exc()) # More detailed error for debugging
         return None, None
 
@@ -216,6 +203,7 @@ if submitted:
         st.warning("Please enter a MaintainX Part URL.")
     else:
         with st.spinner("Generating label... Fetching data and creating PDF..."):
+            # Call the function which now uses the original layout parameters
             pdf_data, pdf_filename = generate_pdf_label_data(part_url_input)
 
         if pdf_data and pdf_filename:
@@ -235,4 +223,5 @@ if submitted:
 
 st.markdown("---")
 st.caption("Note: Ensure the API Token and Key used have the necessary permissions to read part data.")
-st.caption("⚠️ Security Warning: The API credentials in this script are hardcoded for demonstration. Use Streamlit Secrets (`st.secrets`) for production or shared apps.")
+# Updated caption about secrets handling
+st.caption("Security: Uses Streamlit Secrets for API credentials. If `secrets.toml` is not found, it may fall back to hardcoded values (not recommended).")
